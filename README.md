@@ -112,6 +112,7 @@ lingo.addTable(Language::En, TIME_EN);
 > Registered tables and their translation strings are not copied. Keep them alive until `lingo.end()`. `constexpr` or static tables containing string literals are the intended pattern.
 
 * Exactly one table may be registered for a `{language, key enum type}` pair.
+* Size `maxTables` for the total number of registered language/domain pairs; each feature table in each language consumes one slot.
 * `get()` never returns `nullptr`; `find()` is the strict nullable lookup API.
 * `get(key, language)` falls back to the default language only within the same enum domain.
 * `init()` allocates a bounded registry once. With `preferPsram = true`, ESP32 PSRAM is attempted first and normal heap is the fallback.

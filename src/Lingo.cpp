@@ -28,7 +28,10 @@ Lingo::~Lingo() {
 
 LingoResult Lingo::init(const LingoConfig &config) {
 	if (_initialized) {
-		return LingoResult::failure(LingoStatus::AlreadyInitialized, "lingo is already initialized");
+		return LingoResult::failure(
+		    LingoStatus::AlreadyInitialized,
+		    "lingo is already initialized"
+		);
 	}
 
 	if (config.maxTables == 0 || config.missingTranslation == nullptr) {
@@ -43,8 +46,7 @@ LingoResult Lingo::init(const LingoConfig &config) {
 		);
 	}
 
-	const size_t allocationSize =
-	    sizeof(lingo_internal::LingoRegisteredTable) * config.maxTables;
+	const size_t allocationSize = sizeof(lingo_internal::LingoRegisteredTable) * config.maxTables;
 	void *memory = lingo_internal::allocate(allocationSize, config.preferPsram);
 	if (memory == nullptr) {
 		return LingoResult::failure(

@@ -28,7 +28,7 @@ void setup() {
 
 	LingoConfig config;
 	config.defaultLanguage = Language::Hu;
-	config.preferPsram = true;
+	config.memory.allocation = Strata::Placement::PreferExternal;
 
 	if (!lingo.init(config)) {
 		return;
@@ -39,6 +39,13 @@ void setup() {
 
 	Serial.println(lingo.get(CommonKey::Key));
 	Serial.println(lingo.get(CommonKey::Example, Language::En));
+
+	const LingoDiag diag = lingo.getDiagnostics();
+	Serial.printf(
+	    "registry placement=%u region=%u\n",
+	    static_cast<unsigned>(diag.registryPlacement),
+	    static_cast<unsigned>(diag.registryRegion)
+	);
 
 	lingo.setDefaultLanguage(Language::En);
 	Serial.println(lingo.get(CommonKey::Key));

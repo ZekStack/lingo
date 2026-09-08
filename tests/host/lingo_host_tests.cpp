@@ -76,16 +76,20 @@ void testLifecycle() {
 	config.defaultLanguage = Language::Hu;
 	config.maxTables = 8;
 	config.missingTranslation = "<missing>";
-	config.preferPsram = true;
+	config.memory.allocation = Strata::Placement::PreferExternal;
 
 	assert(lingo.init(config));
 	assert(lingo.initialized());
 	assert(lingo.tableCapacity() == 8);
-	assert(lingo.preferPsram());
+	const LingoDiag diag = lingo.getDiagnostics();
+	assert(diag.tableCount == 0);
+	assert(diag.tableCapacity == 8);
+	assert(diag.registryPlacement == Strata::Placement::PreferExternal);
 	assert(!lingo.init(config));
 
 	assert(lingo.end());
 	assert(!lingo.initialized());
+	assert(lingo.getDiagnostics().registryRegion == Strata::Region::Unknown);
 	assert(lingo.end());
 
 	assert(lingo.init(config));
@@ -107,6 +111,7 @@ void testRegistrationAndDomainIsolation() {
 	assert(lingo.addTable(Language::En, TIME_EN));
 
 	assert(lingo.tableCount() == 6);
+	assert(lingo.getDiagnostics().tableCount == 6);
 
 	assert(std::strcmp(lingo.get(CommonKey::Save), "Mentés") == 0);
 	assert(std::strcmp(lingo.get(SoftwareKey::Save), "Mentés") == 0);

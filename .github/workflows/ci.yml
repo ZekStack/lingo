@@ -12,9 +12,14 @@ concurrency:
   cancel-in-progress: false
 
 env:
+  ARDUINO_BOARD_MANAGER_ADDITIONAL_URLS: https://espressif.github.io/arduino-esp32/package_esp32_index.json
+  ARDUINO_CLI_VERSION: 1.5.0
+  ARDUINO_NETWORK_CONNECTION_TIMEOUT: 240s
+  ESP32_CORE_VERSION: 3.3.9
   PIOARDUINO_PLATFORM_URL: https://github.com/pioarduino/platform-espressif32/releases/download/55.03.39/platform-espressif32.zip
   PIOARDUINO_PLATFORM_VERSION: 55.03.39
   PIOARDUINO_VERSION: 6.1.19
+  STRATA_VERSION: v0.1.2
 
 jobs:
   metadata:
@@ -42,6 +47,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Audit embedded boundaries
         run: |
+          set -e
           if grep -RInE '#include[[:space:]]+[<"](Accord|Curier|Flow|Fresh|Link|Phase|Pulse|Seal|Signal|Tempo|Trace|Worker)\.h[>"]' src; then
             echo "Lingo must not depend on another ZekStack library"
             exit 1
@@ -62,32 +68,47 @@ jobs:
             echo "Lingo internals must not use Arduino String"
             exit 1
           fi
+          if grep -RInE 'heap_caps_|MALLOC_CAP_|ps_malloc|#include[[:space:]]+[<"]esp_heap_caps\.h[>"]|(^|[^[:alnum:]_:])malloc[[:space:]]*\(|(^|[^[:alnum:]_:])calloc[[:space:]]*\(|(^|[^[:alnum:]_:])realloc[[:space:]]*\(|(^|[^[:alnum:]_:])free[[:space:]]*\(|(^|[^[:alnum:]_])new[[:space:](]|(^|[^[:alnum:]_])delete[[:space:](]' src; then
+            echo "Lingo-owned allocations must route through Strata"
+            exit 1
+          fi
 
   host-tests:
     runs-on: [self-hosted, zekstack-ci]
     needs: source-audit
     steps:
       - uses: actions/checkout@v4
+      - name: Checkout Strata
+        run: |
+          rm -rf /tmp/lingo-strata
+          git clone --depth 1 --branch "${STRATA_VERSION}" \
+            https://github.com/ZekStack/strata.git /tmp/lingo-strata
       - name: Build host behavior tests
         run: |
           g++ -std=c++20 -Wall -Wextra -pedantic \
             -Isrc \
+            -I/tmp/lingo-strata/src \
             src/Lingo.cpp \
+            /tmp/lingo-strata/src/strata/Allocation.cpp \
+            /tmp/lingo-strata/src/strata/Diagnostics.cpp \
+            /tmp/lingo-strata/src/strata/internal/PlatformGeneric.cpp \
             tests/host/lingo_host_tests.cpp \
             -o /tmp/lingo-host-tests
       - name: Run host behavior tests
         run: /tmp/lingo-host-tests
-      - name: Build PSRAM allocation tests
+      - name: Build memory policy tests
         run: |
           g++ -std=c++20 -Wall -Wextra -pedantic \
-            -DESP32 \
-            -Itests/host/esp_stubs \
             -Isrc \
+            -I/tmp/lingo-strata/src \
             src/Lingo.cpp \
-            tests/host/psram_allocation_tests.cpp \
-            -o /tmp/lingo-psram-tests
-      - name: Run PSRAM allocation tests
-        run: /tmp/lingo-psram-tests
+            /tmp/lingo-strata/src/strata/Allocation.cpp \
+            /tmp/lingo-strata/src/strata/Diagnostics.cpp \
+            /tmp/lingo-strata/src/strata/internal/PlatformGeneric.cpp \
+            tests/host/memory_policy_tests.cpp \
+            -o /tmp/lingo-memory-policy-tests
+      - name: Run memory policy tests
+        run: /tmp/lingo-memory-policy-tests
 
   build-examples:
     runs-on: [self-hosted, zekstack-ci]
@@ -112,6 +133,8 @@ jobs:
             ~/.platformio
             ~/.cache/pip
           key: ${{ runner.os }}-pioarduino-${{ env.PIOARDUINO_VERSION }}-${{ env.PIOARDUINO_PLATFORM_VERSION }}-${{ hashFiles('**/library.json') }}
+          restore-keys: |
+            ${{ runner.os }}-pioarduino-${{ env.PIOARDUINO_VERSION }}-${{ env.PIOARDUINO_PLATFORM_VERSION }}-
       - name: Install PIOArduino
         run: |
           python -m pip install --upgrade "pioarduino==${PIOARDUINO_VERSION}"
@@ -124,13 +147,69 @@ jobs:
               --board "${{ matrix.board }}" \
               --lib="." \
               --project-option "platform=${PIOARDUINO_PLATFORM_URL}" \
+              --project-option "lib_deps=https://github.com/ZekStack/strata.git#${STRATA_VERSION}" \
               --project-option "build_unflags=-std=gnu++11" \
               --project-option "build_flags=-std=gnu++20"
           done
 
+  arduino-cli:
+    runs-on: [self-hosted, zekstack-ci]
+    needs: source-audit
+    strategy:
+      fail-fast: false
+      matrix:
+        board:
+          - fqbn: esp32:esp32:esp32
+            name: esp32dev
+          - fqbn: esp32:esp32:esp32s3
+            name: esp32-s3-devkitc-1
+          - fqbn: esp32:esp32:esp32c3
+            name: esp32-c3-devkitm-1
+          - fqbn: esp32:esp32:esp32p4
+            name: esp32-p4-evboard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: arduino/setup-arduino-cli@v2
+        with:
+          version: ${{ env.ARDUINO_CLI_VERSION }}
+      - name: Cache Arduino CLI packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.arduino15
+            ~/.cache/arduino
+          key: ${{ runner.os }}-arduino-cli-${{ env.ARDUINO_CLI_VERSION }}-esp32-${{ env.ESP32_CORE_VERSION }}
+          restore-keys: |
+            ${{ runner.os }}-arduino-cli-${{ env.ARDUINO_CLI_VERSION }}-esp32-
+      - name: Install ESP32 core
+        run: |
+          arduino-cli core update-index
+          arduino-cli core install "esp32:esp32@${ESP32_CORE_VERSION}"
+      - name: Add local libraries to sketchbook
+        run: |
+          set -e
+          SKETCHBOOK_DIR="${HOME}/Arduino"
+          rm -rf "$SKETCHBOOK_DIR/libraries/Lingo" "$SKETCHBOOK_DIR/libraries/Strata"
+          mkdir -p "$SKETCHBOOK_DIR/libraries/Lingo"
+          rsync -a --delete --exclude ".git" ./ "$SKETCHBOOK_DIR/libraries/Lingo/"
+          git clone --depth 1 --branch "${STRATA_VERSION}" \
+            https://github.com/ZekStack/strata.git \
+            "$SKETCHBOOK_DIR/libraries/Strata"
+      - name: Build examples (${{ matrix.board.name }})
+        env:
+          FQBN: ${{ matrix.board.fqbn }}
+        run: |
+          set -e
+          for sketch in examples/*; do
+            arduino-cli compile \
+              --fqbn "$FQBN" \
+              --build-property "compiler.cpp.extra_flags=-std=gnu++20" \
+              "$sketch"
+          done
+
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [metadata, clang-format, source-audit, host-tests, build-examples]
+    needs: [metadata, clang-format, source-audit, host-tests, build-examples, arduino-cli]
     runs-on: [self-hosted, zekstack-ci]
     permissions:
       contents: write
@@ -142,8 +221,8 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           awk -v version="$VERSION" '
+            $0 == "## " {if (capture) exit}
             $0 == "## " version {capture=1; next}
-            capture && /^## / {exit}
             capture {print}
           ' CHANGELOG.md > /tmp/release-notes.md
           gh release create "$GITHUB_REF_NAME" \

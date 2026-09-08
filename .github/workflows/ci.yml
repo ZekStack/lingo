@@ -8,8 +8,8 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: lingo-${{ github.ref }}
-  cancel-in-progress: false
+  group: lingo-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
 
 env:
   ARDUINO_BOARD_MANAGER_ADDITIONAL_URLS: https://espressif.github.io/arduino-esp32/package_esp32_index.json
@@ -122,11 +122,11 @@ jobs:
           - esp32-c3-devkitm-1
           - esp32-p4-evboard
     steps:
-      - name: Clean stale PIOArduino state
+      - name: Prepare isolated PIOArduino state
         run: |
           PLATFORMIO_CORE_DIR="${RUNNER_TEMP}/lingo-platformio"
           PIP_CACHE_DIR="${RUNNER_TEMP}/lingo-pip-cache"
-          rm -rf "${HOME}/.platformio" "${HOME}/.cache/pip"
+          rm -rf "${HOME}/.platformio" "${HOME}/.cache/pip" "${HOME}/.arduino15" "${HOME}/.cache/arduino"
           rm -rf "${PLATFORMIO_CORE_DIR}" "${PIP_CACHE_DIR}"
           mkdir -p "${PLATFORMIO_CORE_DIR}" "${PIP_CACHE_DIR}"
           echo "PLATFORMIO_CORE_DIR=${PLATFORMIO_CORE_DIR}" >> "${GITHUB_ENV}"
@@ -171,19 +171,21 @@ jobs:
           - fqbn: esp32:esp32:esp32p4
             name: esp32-p4-evboard
     steps:
+      - name: Prepare isolated Arduino CLI state
+        run: |
+          ARDUINO_DATA_DIR="${RUNNER_TEMP}/lingo-arduino-data"
+          ARDUINO_DOWNLOADS_DIR="${RUNNER_TEMP}/lingo-arduino-downloads"
+          ARDUINO_USER_DIR="${RUNNER_TEMP}/lingo-arduino-user"
+          rm -rf "${HOME}/.platformio" "${HOME}/.cache/pip" "${HOME}/.arduino15" "${HOME}/.cache/arduino"
+          rm -rf "${ARDUINO_DATA_DIR}" "${ARDUINO_DOWNLOADS_DIR}" "${ARDUINO_USER_DIR}"
+          mkdir -p "${ARDUINO_DATA_DIR}" "${ARDUINO_DOWNLOADS_DIR}" "${ARDUINO_USER_DIR}"
+          echo "ARDUINO_DIRECTORIES_DATA=${ARDUINO_DATA_DIR}" >> "${GITHUB_ENV}"
+          echo "ARDUINO_DIRECTORIES_DOWNLOADS=${ARDUINO_DOWNLOADS_DIR}" >> "${GITHUB_ENV}"
+          echo "ARDUINO_DIRECTORIES_USER=${ARDUINO_USER_DIR}" >> "${GITHUB_ENV}"
       - uses: actions/checkout@v4
       - uses: arduino/setup-arduino-cli@v2
         with:
           version: ${{ env.ARDUINO_CLI_VERSION }}
-      - name: Cache Arduino CLI packages
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.arduino15
-            ~/.cache/arduino
-          key: ${{ runner.os }}-arduino-cli-${{ env.ARDUINO_CLI_VERSION }}-esp32-${{ env.ESP32_CORE_VERSION }}
-          restore-keys: |
-            ${{ runner.os }}-arduino-cli-${{ env.ARDUINO_CLI_VERSION }}-esp32-
       - name: Install ESP32 core
         run: |
           arduino-cli core update-index
@@ -191,8 +193,7 @@ jobs:
       - name: Add local libraries to sketchbook
         run: |
           set -e
-          SKETCHBOOK_DIR="${HOME}/Arduino"
-          rm -rf "$SKETCHBOOK_DIR/libraries/Lingo" "$SKETCHBOOK_DIR/libraries/Strata"
+          SKETCHBOOK_DIR="${ARDUINO_DIRECTORIES_USER}"
           mkdir -p "$SKETCHBOOK_DIR/libraries/Lingo"
           rsync -a --delete --exclude ".git" ./ "$SKETCHBOOK_DIR/libraries/Lingo/"
           git clone --depth 1 --branch "${STRATA_VERSION}" \
@@ -209,6 +210,12 @@ jobs:
               --build-property "compiler.cpp.extra_flags=-std=gnu++20" \
               "$sketch"
           done
+      - name: Clean Arduino CLI temporary state
+        if: always()
+        run: |
+          rm -rf "${ARDUINO_DIRECTORIES_DATA}" \
+            "${ARDUINO_DIRECTORIES_DOWNLOADS}" \
+            "${ARDUINO_DIRECTORIES_USER}"
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')

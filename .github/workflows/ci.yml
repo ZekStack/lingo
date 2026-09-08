@@ -221,8 +221,8 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           awk -v version="$VERSION" '
-            $0 == "## " {if (capture) exit}
             $0 == "## " version {capture=1; next}
+            capture && /^## / {exit}
             capture {print}
           ' CHANGELOG.md > /tmp/release-notes.md
           gh release create "$GITHUB_REF_NAME" \

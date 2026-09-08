@@ -32,10 +32,8 @@ LingoResult Lingo::init(const LingoConfig &config) {
 		);
 	}
 
-	if (
-		config.maxTables == 0 ||
-		config.missingTranslation == nullptr ||
-		!Strata::validMemoryPolicy(config.memory)) {
+	if (config.maxTables == 0 || config.missingTranslation == nullptr ||
+	    !Strata::validMemoryPolicy(config.memory)) {
 		return LingoResult::failure(LingoStatus::InvalidConfig, "invalid lingo configuration");
 	}
 

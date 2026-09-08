@@ -113,9 +113,6 @@ jobs:
   build-examples:
     runs-on: [self-hosted, zekstack-ci]
     needs: [source-audit, host-tests]
-    env:
-      PLATFORMIO_CORE_DIR: ${{ runner.temp }}/lingo-platformio
-      PIP_CACHE_DIR: ${{ runner.temp }}/lingo-pip-cache
     strategy:
       fail-fast: false
       matrix:
@@ -127,9 +124,13 @@ jobs:
     steps:
       - name: Clean stale PIOArduino state
         run: |
+          PLATFORMIO_CORE_DIR="${RUNNER_TEMP}/lingo-platformio"
+          PIP_CACHE_DIR="${RUNNER_TEMP}/lingo-pip-cache"
           rm -rf "${HOME}/.platformio" "${HOME}/.cache/pip"
           rm -rf "${PLATFORMIO_CORE_DIR}" "${PIP_CACHE_DIR}"
           mkdir -p "${PLATFORMIO_CORE_DIR}" "${PIP_CACHE_DIR}"
+          echo "PLATFORMIO_CORE_DIR=${PLATFORMIO_CORE_DIR}" >> "${GITHUB_ENV}"
+          echo "PIP_CACHE_DIR=${PIP_CACHE_DIR}" >> "${GITHUB_ENV}"
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:

@@ -126,7 +126,6 @@ jobs:
         run: |
           PLATFORMIO_CORE_DIR="${RUNNER_TEMP}/lingo-platformio"
           PIP_CACHE_DIR="${RUNNER_TEMP}/lingo-pip-cache"
-          rm -rf "${HOME}/.platformio" "${HOME}/.cache/pip" "${HOME}/.arduino15" "${HOME}/.cache/arduino"
           rm -rf "${PLATFORMIO_CORE_DIR}" "${PIP_CACHE_DIR}"
           mkdir -p "${PLATFORMIO_CORE_DIR}" "${PIP_CACHE_DIR}"
           echo "PLATFORMIO_CORE_DIR=${PLATFORMIO_CORE_DIR}" >> "${GITHUB_ENV}"
@@ -176,7 +175,6 @@ jobs:
           ARDUINO_DATA_DIR="${RUNNER_TEMP}/lingo-arduino-data"
           ARDUINO_DOWNLOADS_DIR="${RUNNER_TEMP}/lingo-arduino-downloads"
           ARDUINO_USER_DIR="${RUNNER_TEMP}/lingo-arduino-user"
-          rm -rf "${HOME}/.platformio" "${HOME}/.cache/pip" "${HOME}/.arduino15" "${HOME}/.cache/arduino"
           rm -rf "${ARDUINO_DATA_DIR}" "${ARDUINO_DOWNLOADS_DIR}" "${ARDUINO_USER_DIR}"
           mkdir -p "${ARDUINO_DATA_DIR}" "${ARDUINO_DOWNLOADS_DIR}" "${ARDUINO_USER_DIR}"
           echo "ARDUINO_DIRECTORIES_DATA=${ARDUINO_DATA_DIR}" >> "${GITHUB_ENV}"

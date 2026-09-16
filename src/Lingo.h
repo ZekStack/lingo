@@ -1,5 +1,7 @@
 #pragma once
 
+#include <Strata.h>
+
 #include <array>
 #include <atomic>
 #include <cstddef>
@@ -96,10 +98,20 @@ class LingoLanguage {
 };
 
 struct LingoConfig {
+	Strata::MemoryPolicy memory{
+	    .allocation = Strata::Placement::PreferExternal,
+	    .taskStack = Strata::Placement::Internal,
+	};
 	LingoLanguage defaultLanguage{};
 	size_t maxTables = 64;
 	const char *missingTranslation = "";
-	bool preferPsram = true;
+};
+
+struct LingoDiag {
+	size_t tableCount = 0;
+	size_t tableCapacity = 0;
+	Strata::Placement registryPlacement = Strata::Placement::PreferExternal;
+	Strata::Region registryRegion = Strata::Region::Unknown;
 };
 
 template <typename TKey> class LingoEntry {
@@ -251,7 +263,7 @@ class Lingo {
 
 	size_t tableCount() const;
 	size_t tableCapacity() const;
-	bool preferPsram() const;
+	LingoDiag getDiagnostics() const;
 
   private:
 	LingoResult addTableRaw(
@@ -269,7 +281,7 @@ class Lingo {
 	size_t _tableCount = 0;
 	size_t _tableCapacity = 0;
 	const char *_missingTranslation = "";
-	bool _preferPsram = true;
+	Strata::Placement _registryPlacement = Strata::Placement::PreferExternal;
 	bool _initialized = false;
 	std::atomic<uint16_t> _defaultLanguage{0};
 };

@@ -1,5 +1,15 @@
 # Troubleshooting
 
+## `InvalidConfig`
+
+`init()` rejects zero `maxTables`, a null `missingTranslation`, an overflowing registry size, or an invalid `Strata::MemoryPolicy`. Use one of the defined `Strata::Placement` values for both policy fields.
+
+## `AllocationFailed`
+
+Strata could not allocate the bounded registry with the requested policy.
+
+If `config.memory.allocation == Strata::Placement::RequireExternal`, external memory is mandatory and Lingo does not fall back to internal RAM. Use `PreferExternal` when internal fallback is acceptable or `Internal` when the registry should stay in internal memory.
+
 ## `TableAlreadyRegistered`
 
 Only one table may be registered for each `{language, key enum type}` pair. Merge that feature's translations into one table for the language.

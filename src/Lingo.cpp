@@ -1,9 +1,7 @@
 #include "Lingo.h"
 
-#include "internal/LingoMemory.h"
-
 #include <limits>
-#include <new>
+#include <memory>
 
 namespace lingo_internal {
 
@@ -34,7 +32,8 @@ LingoResult Lingo::init(const LingoConfig &config) {
 		);
 	}
 
-	if (config.maxTables == 0 || config.missingTranslation == nullptr) {
+	if (config.maxTables == 0 || config.missingTranslation == nullptr ||
+	    !Strata::validMemoryPolicy(config.memory)) {
 		return LingoResult::failure(LingoStatus::InvalidConfig, "invalid lingo configuration");
 	}
 
@@ -46,24 +45,26 @@ LingoResult Lingo::init(const LingoConfig &config) {
 		);
 	}
 
-	const size_t allocationSize = sizeof(lingo_internal::LingoRegisteredTable) * config.maxTables;
-	void *memory = lingo_internal::allocate(allocationSize, config.preferPsram);
-	if (memory == nullptr) {
+	auto *tables = Strata::allocateArray<lingo_internal::LingoRegisteredTable>(
+	    config.maxTables,
+	    config.memory.allocation
+	);
+	if (tables == nullptr) {
 		return LingoResult::failure(
 		    LingoStatus::AllocationFailed,
 		    "translation table registry allocation failed"
 		);
 	}
 
-	_tables = static_cast<lingo_internal::LingoRegisteredTable *>(memory);
 	for (size_t index = 0; index < config.maxTables; ++index) {
-		new (&_tables[index]) lingo_internal::LingoRegisteredTable();
+		std::construct_at(&tables[index]);
 	}
 
+	_tables = tables;
 	_tableCount = 0;
 	_tableCapacity = config.maxTables;
 	_missingTranslation = config.missingTranslation;
-	_preferPsram = config.preferPsram;
+	_registryPlacement = config.memory.allocation;
 	_defaultLanguage.store(config.defaultLanguage.value(), std::memory_order_release);
 	_initialized = true;
 
@@ -76,15 +77,15 @@ LingoResult Lingo::end() {
 	}
 
 	for (size_t index = 0; index < _tableCapacity; ++index) {
-		_tables[index].~LingoRegisteredTable();
+		std::destroy_at(&_tables[index]);
 	}
 
-	lingo_internal::release(_tables);
+	Strata::free(_tables);
 	_tables = nullptr;
 	_tableCount = 0;
 	_tableCapacity = 0;
 	_missingTranslation = kEmptyTranslation;
-	_preferPsram = true;
+	_registryPlacement = Strata::Placement::PreferExternal;
 	_defaultLanguage.store(0, std::memory_order_release);
 	_initialized = false;
 
@@ -218,6 +219,11 @@ size_t Lingo::tableCapacity() const {
 	return _tableCapacity;
 }
 
-bool Lingo::preferPsram() const {
-	return _preferPsram;
+LingoDiag Lingo::getDiagnostics() const {
+	return LingoDiag{
+	    .tableCount = _tableCount,
+	    .tableCapacity = _tableCapacity,
+	    .registryPlacement = _registryPlacement,
+	    .registryRegion = _tables == nullptr ? Strata::Region::Unknown : Strata::regionOf(_tables),
+	};
 }

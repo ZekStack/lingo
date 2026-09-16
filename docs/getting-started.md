@@ -1,6 +1,6 @@
 # Getting started
 
-Lingo maps strongly typed enum keys to static translation strings.
+Lingo maps strongly typed enum keys to static translation strings and uses Strata for its bounded registry allocation.
 
 ## 1. Define languages
 
@@ -45,7 +45,7 @@ Lingo lingo;
 
 LingoConfig config;
 config.defaultLanguage = Language::Hu;
-config.preferPsram = true;
+config.memory.allocation = Strata::Placement::PreferExternal;
 
 if (!lingo.init(config)) {
 	return;
@@ -54,6 +54,8 @@ if (!lingo.init(config)) {
 lingo.addTable(Language::Hu, SOFTWARE_HU);
 lingo.addTable(Language::En, SOFTWARE_EN);
 ```
+
+`PreferExternal` is already Lingo's default and preserves the v0.1.x PSRAM-first behavior. Set `Internal` when the registry must stay in internal RAM, or `RequireExternal` when initialization must fail instead of falling back.
 
 ## 5. Translate
 
@@ -64,3 +66,17 @@ const char *english = lingo.get(SoftwareKey::Install, Language::En);
 ```
 
 `get()` never returns `nullptr`. Use `find()` when the caller needs a strict nullable lookup.
+
+## 6. Inspect registry placement
+
+```cpp
+const LingoDiag diag = lingo.getDiagnostics();
+
+// Requested policy.
+Strata::Placement requested = diag.registryPlacement;
+
+// Actual memory region, when the platform can identify it.
+Strata::Region actual = diag.registryRegion;
+```
+
+Requested placement and observed region are intentionally separate because `PreferExternal` may fall back to internal memory.

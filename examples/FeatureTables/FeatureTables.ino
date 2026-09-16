@@ -56,7 +56,7 @@ void setup() {
 	LingoConfig config;
 	config.defaultLanguage = Language::Hu;
 	config.maxTables = 8;
-	config.preferPsram = true;
+	config.memory.allocation = Strata::Placement::PreferExternal;
 
 	if (!lingo.init(config)) {
 		return;

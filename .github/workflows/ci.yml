@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: ['**']
+    branches: [main]
     tags: ['v*']
   pull_request:
   workflow_dispatch:
@@ -115,6 +115,7 @@ jobs:
     needs: [source-audit, host-tests]
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
         board:
           - esp32dev
@@ -156,9 +157,10 @@ jobs:
 
   arduino-cli:
     runs-on: [self-hosted, zekstack-ci]
-    needs: source-audit
+    needs: [source-audit, build-examples]
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
         board:
           - fqbn: esp32:esp32:esp32

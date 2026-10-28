@@ -1,5 +1,7 @@
 # Lingo
 
+> Current version: **v0.3.0**, using Strata **v0.1.4**.
+
 Lingo is a strongly typed, feature-oriented translation library for Arduino ESP32.
 
 It is designed for firmware where each feature owns a small translation table, lookup must stay allocation-free, and the bounded runtime registry should follow the same Strata memory policy used across ZekStack libraries.
@@ -21,7 +23,7 @@ It is designed for firmware where each feature owns a small translation table, l
 
 ## Install
 
-Lingo v0.2.0 depends on [Strata](https://github.com/ZekStack/strata) v0.1.2.
+Lingo v0.3.0 depends on [Strata](https://github.com/ZekStack/strata) v0.1.2.
 
 ### PlatformIO
 
@@ -40,7 +42,7 @@ build_unflags =
   -std=gnu++11
 ```
 
-Lingo's `library.json` pins Strata v0.1.2.
+Lingo's `library.json` pins Strata v0.1.4.
 
 ### Arduino IDE
 
@@ -51,7 +53,7 @@ Arduino/libraries/Lingo
 Arduino/libraries/Strata
 ```
 
-Use Strata v0.1.2 with Lingo v0.2.0.
+Use Strata v0.1.4 with Lingo v0.2.0.
 
 ## Quick start
 
@@ -217,12 +219,12 @@ config.memory.allocation = Strata::Placement::Internal;
 | Framework | Arduino ESP32 |
 | Platform | `espressif32` |
 | Language | C++20 |
-| Dependencies | Strata v0.1.2 |
+| Dependencies | Strata v0.1.4 |
 | RTTI | not required |
 | Exceptions | not used for public error handling |
 | Registry default | `Strata::Placement::PreferExternal` |
 | Runtime lookup allocation | none |
-| Status | v0.2.0 Strata memory-policy migration |
+| Status | v0.3.0 Strata memory-policy integration |
 
 ## License
 

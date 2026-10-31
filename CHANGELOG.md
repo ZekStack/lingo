@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.0
+
+- Pin the Strata dependency to v0.1.4 in the manifest and CI.
+- Increment Lingo's minor version to v0.3.0.
+
 All notable changes to Lingo are documented in this file.
 
 ## 0.2.0
